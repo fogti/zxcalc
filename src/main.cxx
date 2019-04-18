@@ -1,3 +1,12 @@
+#include "zxcalc_config.h"
+
+#ifdef LIBEDIT_FOUND
+extern "C" {
+# include <histedit.h>
+}
+#endif
+#include <stdio.h>
+
 #include "cpm.hpp"
 #include "str.hpp"
 #include <exception>
@@ -120,12 +129,47 @@ static auto calc_wrapper(CalcPluginManager &cpm, bool &got_error, const x_node_t
   return res;
 }
 
+#ifdef LIBEDIT_FOUND
+static const char * prompt(EditLine *e) {
+  return "zxcalc $ ";
+}
+#endif
+
 int main() {
   CalcPluginManager cpm;
   string line;
   double value = 0;
+  bool breakout = false;
 
-  while(getline(cin, line)) {
+#ifdef LIBEDIT_FOUND
+  EditLine *el;
+  History *myhistory;
+
+  /* Temp variables */
+  int count;
+  const char *line_c;
+  HistEvent ev;
+
+  el = el_init("zxcalc", stdin, stdout, stderr);
+  el_set(el, EL_PROMPT, &prompt);
+
+  myhistory = history_init();
+  if(!myhistory) {
+    cerr << "history could not be initialized\n";
+    return 1;
+  }
+
+  history(myhistory, &ev, H_SETSIZE, 800);
+  el_set(el, EL_HIST, history, myhistory);
+
+  while(!breakout) {
+    line_c = el_gets(el, &count);
+    if(!count) continue;
+    history(myhistory, &ev, H_ENTER, line_c);
+    line = line_c;
+#else
+  while(!breakout && getline(cin, line)) {
+#endif
     auto parts = parse_line(line, value);
     value = 0;
     bool got_error = false;
@@ -138,8 +182,10 @@ int main() {
       switch(i.st) {
         case x_node_t::ERROR:
           got_error = true;
-          if(i.clp == "quit") return 0;
-          else if(i.clp == "list-loaded-plugins") {
+          if(i.clp == "quit") {
+            breakout = true;
+            break;
+          } else if(i.clp == "list-loaded-plugins") {
             cpm.list_loaded_plugins();
             break;
           } else if(i.clp == "help") {
@@ -180,10 +226,15 @@ int main() {
           }
           break;
       }
-      if(got_error) break;
+      if(breakout || got_error) break;
     }
     if(!got_error) cout << '\t' << value << '\n';
   }
+
+#ifdef LIBEDIT_FOUND
+  history_end(myhistory);
+  el_end(el);
+#endif
 
   return 0;
 }
