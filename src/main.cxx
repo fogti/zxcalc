@@ -152,7 +152,7 @@ int main() {
 
   el = el_init("zxcalc", stdin, stdout, stderr);
   el_set(el, EL_PROMPT, &prompt);
-  el_set(el, EL_EDITOR, "vi");
+  el_set(el, EL_EDITOR, "emacs");
 
   myhistory = history_init();
   if(!myhistory) {
