@@ -13,13 +13,11 @@ CalcPluginManager::plgdat_t::plgdat_t()
 
 CalcPluginManager::CalcPluginManager() {
   // default aliases
-  alias("_"    , "raw");
-  alias("*"    , "mul");
-  alias("2^"   , "base2");
-  alias("%"    , "percent");
-  alias("!%"   , "invnperc");
-  alias("!+%"  , "invpperc");
-  alias("!!%"  , "invaperc");
+  alias("_"  , "raw");
+  alias("2^" , "base2");
+  alias("%"  , "percent");
+  alias("!%" , "invnperc");
+  alias("!+%", "invpperc");
   parse_setup();
 }
 
