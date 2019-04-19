@@ -7,10 +7,8 @@ CALC_FN(fact) {
   if(cnt == 0) {
     x = 1;
   } else {
-    num_t x2 = 1;
     for(num_t tmp = cnt - 1; tmp; --tmp)
-      x2 *= tmp;
-    x *= x2;
+      x *= tmp;
   }
   return x;
 }

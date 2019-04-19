@@ -6,7 +6,7 @@ if(LIBEDIT_FOUND)
   include_directories(${LIBEDIT_INCLUDE_DIR})
 endif()
 file(GLOB_RECURSE PLGS_SRCS plugins/*.c)
-add_executable(zxcalc cpm.cxx main.cxx str.cxx ${PLGS_SRCS})
+add_executable(zxcalc cpm.cxx main.cxx str.cxx zxmath.c ${PLGS_SRCS})
 
 target_link_libraries(zxcalc ${CMAKE_DL_LIBS})
 if(NEED_LINKING_AGAINST_LIBM)

@@ -15,6 +15,7 @@ CalcPluginManager::CalcPluginManager() {
   // default aliases
   alias("_"  , "raw");
   alias("2^" , "base2");
+  alias("10^", "base10");
   alias("%"  , "percent");
   alias("!%" , "invnperc");
   alias("!+%", "invpperc");
