@@ -116,19 +116,6 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
   return nodes;
 }
 
-class VarManager {
-  unordered_map<string, double> _data;
-
- public:
-  void set(string x, double y) {
-    _data[move(x)] = y;
-  }
-  auto get(string x) -> optional<double> {
-    const auto it = _data.find(x);
-    return (it != _data.end()) ? optional<double>(it->second) : nullopt;
-  }
-};
-
 #ifdef LIBEDIT_FOUND
 static const char * prompt(EditLine *e) {
   return "zxcalc $ ";
@@ -137,7 +124,7 @@ static const char * prompt(EditLine *e) {
 
 int main() {
   CalcPluginManager cpm;
-  VarManager varm;
+  unordered_map<string, double> vars;
   string line;
   double value = 0;
   bool breakout = false;
@@ -214,7 +201,7 @@ int main() {
           break;
 
         case '=':
-          varm.set(i.clp, value);
+          vars[i.clp] = value;
           break;
 
         case '+':
@@ -222,8 +209,9 @@ int main() {
         case '*':
         case '/':
           if(!i.var.empty()) {
-            if(const auto vvr = varm.get(i.var)) {
-              i.val = *vvr;
+            const auto it = vars.find(i.var);
+            if(it != vars.end()) {
+              i.val = it->second;
             } else {
               got_error = true;
               cerr << "\tERROR: " << i.var << ": unknown variable\n";

@@ -4,12 +4,9 @@
 CALC_FN(fact) {
   typedef unsigned long long num_t;
   const num_t cnt = floor(fabs(x));
-  if(cnt == 0) {
-    x = 1;
-  } else {
-    for(num_t tmp = cnt - 1; tmp; --tmp)
-      x *= tmp;
-  }
+  if(cnt == 0) return 1;
+  for(num_t tmp = cnt - 1; tmp; --tmp)
+    x *= tmp;
   return x;
 }
 
