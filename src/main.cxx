@@ -19,20 +19,20 @@ extern "C" {
 using namespace std;
 
 struct x_node_t {
-  string clp;
+  string clp, var;
   double val;
-  char st; // one of: +-*/:e
+  char st; // one of: +-*/:=e
 
-  static auto expr(string clp, double val, char st) -> x_node_t {
-    return x_node_t{ std::move(clp), val, st };
+  static auto expr(string clp, string var, double val, char st) -> x_node_t {
+    return x_node_t{ std::move(clp), std::move(var), val, st };
   }
 
-  static auto exprinv(string clp) -> x_node_t {
-    return x_node_t{ std::move(clp), 0.0, ':' };
+  static auto trexpr(string x, char st) -> x_node_t {
+    return x_node_t{ std::move(x), string(), 0.0, st };
   }
 
   static auto error(string x) -> x_node_t {
-    return x_node_t{ std::move(x), 0.0, 'e' };
+    return x_node_t{ std::move(x), string(), 0.0, 'e' };
   }
 };
 
@@ -48,7 +48,7 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
         return {x_node_t::error(move(i))};
 
     if(i.size() != 1 || i.find_first_of("+-:") == string::npos) {
-      nodes.emplace_back(x_node_t::expr(move(i), prev_val, '+'));
+      nodes.emplace_back(x_node_t::expr(move(i), string(), prev_val, '+'));
       toks.erase(toks.begin());
     }
   }
@@ -60,21 +60,22 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
     switch(mode) {
       case PM_START:
         if(i.size() == 1) {
+          st = i.back();
           switch(i.back()) {
             case '+':
             case '-':
             case '*':
             case '/':
-              st = i.back();
               mode = PM_CLP;
               break;
 
             case ':':
+            case '=':
               mode = PM_CLPX;
               break;
 
             default:
-              nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|'*'|'/'|':' instead of '" + move(i) + "'"));
+              nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|'*'|'/'|':'|'=' instead of '" + move(i) + "'"));
               break;
           }
         }
@@ -84,7 +85,7 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
         mode = PM_NUM;
         break;
       case PM_CLPX: // expect calc plugin name
-        nodes.emplace_back(x_node_t::exprinv(move(i)));
+        nodes.emplace_back(x_node_t::trexpr(move(i), st));
         mode = PM_START;
         break;
       case PM_NUM:
@@ -94,10 +95,10 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
           try {
             val = stod(i);
           } catch(...) {
-            nodes.emplace_back(x_node_t::error("expected number instead of '" + move(i) + "'"));
+            nodes.emplace_back(x_node_t::expr(move(clp), move(i), 0.0, st));
             break;
           }
-          nodes.emplace_back(x_node_t::expr(move(clp), val, st));
+          nodes.emplace_back(x_node_t::expr(move(clp), string(), val, st));
         }
         break;
     }
@@ -115,6 +116,19 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
   return nodes;
 }
 
+class VarManager {
+  unordered_map<string, double> _data;
+
+ public:
+  void set(string x, double y) {
+    _data[move(x)] = y;
+  }
+  auto get(string x) -> optional<double> {
+    const auto it = _data.find(x);
+    return (it != _data.end()) ? optional<double>(it->second) : nullopt;
+  }
+};
+
 #ifdef LIBEDIT_FOUND
 static const char * prompt(EditLine *e) {
   return "zxcalc $ ";
@@ -123,6 +137,7 @@ static const char * prompt(EditLine *e) {
 
 int main() {
   CalcPluginManager cpm;
+  VarManager varm;
   string line;
   double value = 0;
   bool breakout = false;
@@ -161,7 +176,7 @@ int main() {
     value = 0;
     bool got_error = false;
     for(auto &i : parts) {
-      if(i.st != 'e' && !cpm.resolve(i.clp)) {
+      if(i.st != 'e' && i.st != '=' && !cpm.resolve(i.clp)) {
         got_error = true;
         cerr << "\tERROR: " << i.clp << ": unable to resolve plugin name\n";
         break;
@@ -198,10 +213,23 @@ int main() {
           }
           break;
 
+        case '=':
+          varm.set(i.clp, value);
+          break;
+
         case '+':
         case '-':
         case '*':
         case '/':
+          if(!i.var.empty()) {
+            if(const auto vvr = varm.get(i.var)) {
+              i.val = *vvr;
+            } else {
+              got_error = true;
+              cerr << "\tERROR: " << i.var << ": unknown variable\n";
+              break;
+            }
+          }
           if(const auto res = cpm.calc(i.clp, i.val)) {
             const auto dres = *res;
             switch(i.st) {
