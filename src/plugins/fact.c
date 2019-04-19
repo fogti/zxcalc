@@ -14,3 +14,9 @@ CALC_FN(fact) {
   }
   return x;
 }
+
+// gamma(x + 1) = fact(x); but scales better on non-int values
+CALC_FN(gamma) {
+  const double x2 = tgamma(fabs(x));
+  return (x < 0) ? (-x2) : (x2);
+}

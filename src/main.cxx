@@ -21,18 +21,18 @@ using namespace std;
 struct x_node_t {
   string clp;
   double val;
-  enum st_t { CALC, MULCALC, DIVCALC, CALCINV, ERROR } st;
+  char st; // one of: +-*/:e
 
-  static auto expr(string clp, double val, st_t st) -> x_node_t {
+  static auto expr(string clp, double val, char st) -> x_node_t {
     return x_node_t{ std::move(clp), val, st };
   }
 
   static auto exprinv(string clp) -> x_node_t {
-    return x_node_t{ std::move(clp), 0.0, CALCINV };
+    return x_node_t{ std::move(clp), 0.0, ':' };
   }
 
   static auto error(string x) -> x_node_t {
-    return x_node_t{ std::move(x), 0.0, ERROR };
+    return x_node_t{ std::move(x), 0.0, 'e' };
   }
 };
 
@@ -48,41 +48,36 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
         return {x_node_t::error(move(i))};
 
     if(i.size() != 1 || i.find_first_of("+-:") == string::npos) {
-      nodes.emplace_back(x_node_t::expr(move(i), prev_val, x_node_t::CALC));
+      nodes.emplace_back(x_node_t::expr(move(i), prev_val, '+'));
       toks.erase(toks.begin());
     }
   }
 
   enum { PM_START, PM_CLP, PM_CLPX, PM_NUM } mode = PM_START;
-  bool is_neg = false;
-  x_node_t::st_t st = x_node_t::CALC;
+  char st = '+';
   string clp;
   for(auto &&i : toks) {
     switch(mode) {
-      case PM_START: // expect '+' or '-'
-        mode = PM_CLP;
-        st = x_node_t::CALC;
-        if(i.size() == 2) {
+      case PM_START:
+        if(i.size() == 1) {
           switch(i.back()) {
-            case '*': st = x_node_t::MULCALC; break;
-            case '/': st = x_node_t::DIVCALC; break;
-            default:  st = x_node_t::ERROR; break;
+            case '+':
+            case '-':
+            case '*':
+            case '/':
+              st = i.back();
+              mode = PM_CLP;
+              break;
+
+            case ':':
+              mode = PM_CLPX;
+              break;
+
+            default:
+              nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|'*'|'/'|':' instead of '" + move(i) + "'"));
+              break;
           }
         }
-        if(st == x_node_t::ERROR) {
-          nodes.emplace_back(x_node_t::error("expected one of '*'|'/' instead of '" + string(1, i.back()) + "'"));
-          break;
-        }
-        if(i == ":") {
-          mode = PM_CLPX;
-          continue;
-        } else if(st != x_node_t::CALC || i.size() == 1) {
-          switch(i.front()) {
-            case '+': is_neg = false; continue;
-            case '-': is_neg = true;  continue;
-          }
-        }
-        nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|':' instead of '" + move(i) + "'"));
         break;
       case PM_CLP: // expect calc plugin name
         clp = move(i);
@@ -102,11 +97,11 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
             nodes.emplace_back(x_node_t::error("expected number instead of '" + move(i) + "'"));
             break;
           }
-          nodes.emplace_back(x_node_t::expr(move(clp), is_neg ? (-val) : (val), st));
+          nodes.emplace_back(x_node_t::expr(move(clp), val, st));
         }
         break;
     }
-    if(!nodes.empty() && nodes.back().st == x_node_t::ERROR) break;
+    if(!nodes.empty() && nodes.back().st == 'e') break;
   }
   if(mode != PM_START) {
     string xx;
@@ -118,15 +113,6 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
     nodes.emplace_back(x_node_t::error("unexpected EOL while looking for " + xx));
   }
   return nodes;
-}
-
-static auto calc_wrapper(CalcPluginManager &cpm, bool &got_error, const x_node_t &i) {
-  const auto res = cpm.calc(i.clp, i.val);
-  if(!res) {
-    got_error = true;
-    cerr << "\tERROR: " << i.clp << " " << i.val << ": calc failed\n";
-  }
-  return res;
 }
 
 #ifdef LIBEDIT_FOUND
@@ -175,13 +161,13 @@ int main() {
     value = 0;
     bool got_error = false;
     for(auto &i : parts) {
-      if(i.st != x_node_t::ERROR && !cpm.resolve(i.clp)) {
+      if(i.st != 'e' && !cpm.resolve(i.clp)) {
         got_error = true;
         cerr << "\tERROR: " << i.clp << ": unable to resolve plugin name\n";
         break;
       }
       switch(i.st) {
-        case x_node_t::ERROR:
+        case 'e':
           got_error = true;
           if(i.clp == "quit") {
             breakout = true;
@@ -197,34 +183,42 @@ int main() {
               "\n  --SYNTAX--\n"
               "\tThis program expects input lines not containing one of the\n"
               "\tcommands above to have the following format:\n"
-              "\t\t(('+'|'-')(''|'*'|'/') PLG NUM|':' PLG)*\n\n";
+              "\t\t(('+'|'-'|'*'|'/') PLG ['+'|'-']NUM|':' PLG)*\n\n";
             break;
           }
           cerr << "\tERROR: " << i.clp << '\n';
           break;
 
-        case x_node_t::CALC:
-          if(const auto res = calc_wrapper(cpm, got_error, i))
-            value += *res;
-          break;
-
-        case x_node_t::MULCALC:
-          if(const auto res = calc_wrapper(cpm, got_error, i))
-            value *= *res;
-          break;
-
-        case x_node_t::DIVCALC:
-          if(const auto res = calc_wrapper(cpm, got_error, i))
-            value /= *res;
-          break;
-
-        case x_node_t::CALCINV:
+        case ':':
           if(const auto res = cpm.calcinv(i.clp, value)) {
             value = *res;
           } else {
             got_error = true;
             cerr << "\tERROR: " << i.clp << " " << value << ": calcinv failed\n";
           }
+          break;
+
+        case '+':
+        case '-':
+        case '*':
+        case '/':
+          if(const auto res = cpm.calc(i.clp, i.val)) {
+            const auto dres = *res;
+            switch(i.st) {
+              case '+': value += dres; break;
+              case '-': value -= dres; break;
+              case '*': value *= dres; break;
+              case '/': value /= dres; break;
+            }
+          } else {
+            got_error = true;
+            cerr << "\tERROR: " << i.clp << " " << i.val << ": calc failed\n";
+          }
+          break;
+
+        default:
+          got_error = true;
+          cerr << "\tINTERNAL ERROR: unimplemented operation '" << i.st << "'\n";
           break;
       }
       if(breakout || got_error) break;
