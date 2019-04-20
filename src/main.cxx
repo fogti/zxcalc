@@ -47,7 +47,7 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
       if(i == "quit" || i == "list-loaded-plugins" || i == "help")
         return {x_node_t::error(move(i))};
 
-    if(i.size() != 1 || i.find_first_of("+-:") == string::npos) {
+    if(i.size() != 1 || i.find_first_of("+-*/:=") == string::npos) {
       nodes.emplace_back(x_node_t::expr(move(i), string(), prev_val, '+'));
       toks.erase(toks.begin());
     }
@@ -92,13 +92,14 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
         mode = PM_START;
         {
           double val = 0.0;
+          bool is_num = false;
           try {
             val = stod(i);
+            is_num = true;
           } catch(...) {
-            nodes.emplace_back(x_node_t::expr(move(clp), move(i), 0.0, st));
-            break;
+            val = 0.0;
           }
-          nodes.emplace_back(x_node_t::expr(move(clp), string(), val, st));
+          nodes.emplace_back(x_node_t::expr(move(clp), is_num ? string() : move(i), val, st));
         }
         break;
     }
@@ -160,6 +161,7 @@ int main() {
   while(!breakout && getline(cin, line)) {
 #endif
     auto parts = parse_line(line, value);
+    vars["_"] = value;
     value = 0;
     bool got_error = false;
     for(auto &i : parts) {
@@ -185,7 +187,7 @@ int main() {
               "\n  --SYNTAX--\n"
               "\tThis program expects input lines not containing one of the\n"
               "\tcommands above to have the following format:\n"
-              "\t\t(('+'|'-'|'*'|'/') PLG ['+'|'-']NUM|':' PLG)*\n\n";
+              "\t\t(('+'|'-'|'*'|'/') PLG ['+'|'-']NUM|':' PLG|'=' VAR)*\n\n";
             break;
           }
           cerr << "\tERROR: " << i.clp << '\n';
