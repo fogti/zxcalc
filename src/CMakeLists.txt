@@ -1,5 +1,5 @@
-set(CMAKE_C_FLAGS "-fno-plt -fno-exceptions -fno-unwind-tables -rdynamic -Wno-incompatible-pointer-types")
-set(CMAKE_CXX_FLAGS "-fno-plt -fno-rtti -rdynamic")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-plt -fno-exceptions -fno-unwind-tables -rdynamic -Wno-incompatible-pointer-types")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-plt -fno-rtti -rdynamic")
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 if(LIBEDIT_FOUND)

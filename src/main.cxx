@@ -9,6 +9,7 @@ extern "C" {
 
 #include "cpm.hpp"
 #include "str.hpp"
+#include "zxmath.h"
 #include <exception>
 #include <iostream>
 #include <sstream>
@@ -66,6 +67,7 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
             case '-':
             case '*':
             case '/':
+            case '%':
               mode = PM_CLP;
               break;
 
@@ -105,15 +107,14 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
     }
     if(!nodes.empty() && nodes.back().st == 'e') break;
   }
-  if(mode != PM_START) {
-    string xx;
-    switch(mode) {
-      case PM_CLP:
-      case PM_CLPX: xx = "calc plugin name"; break;
-      case PM_NUM:  xx = "number"; break;
-    }
-    nodes.emplace_back(x_node_t::error("unexpected EOL while looking for " + xx));
+  string xx;
+  switch(mode) {
+    case PM_START: break;
+    case PM_CLP:
+    case PM_CLPX: xx = "calc plugin name"; break;
+    case PM_NUM:  xx = "number"; break;
   }
+  if(!xx.empty()) nodes.emplace_back(x_node_t::error("unexpected EOL while looking for " + xx));
   return nodes;
 }
 
@@ -210,6 +211,7 @@ int main() {
         case '-':
         case '*':
         case '/':
+        case '%':
           if(!i.var.empty()) {
             const auto it = vars.find(i.var);
             if(it != vars.end()) {
@@ -227,6 +229,7 @@ int main() {
               case '-': value -= dres; break;
               case '*': value *= dres; break;
               case '/': value /= dres; break;
+              case '%': value = zx_modulo(value, dres); break;
             }
           } else {
             got_error = true;
