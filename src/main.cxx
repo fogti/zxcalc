@@ -118,6 +118,18 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
   return nodes;
 }
 
+[[gnu::const]]
+static double eval_op(double y, const double x, const char op) {
+  switch(op) {
+    case '+': y += x; break;
+    case '-': y -= x; break;
+    case '*': y *= x; break;
+    case '/': y /= x; break;
+    case '%': y = zx_modulo(y, x); break;
+  }
+  return y;
+}
+
 #ifdef LIBEDIT_FOUND
 static const char * prompt(EditLine *e) {
   return "zxcalc $ ";
@@ -214,23 +226,15 @@ int main() {
         case '%':
           if(!i.var.empty()) {
             const auto it = vars.find(i.var);
-            if(it != vars.end()) {
-              i.val = it->second;
-            } else {
+            if(it == vars.end()) {
               got_error = true;
               cerr << "\tERROR: " << i.var << ": unknown variable\n";
               break;
             }
+            i.val = it->second;
           }
           if(const auto res = cpm.calc(i.clp, i.val)) {
-            const auto dres = *res;
-            switch(i.st) {
-              case '+': value += dres; break;
-              case '-': value -= dres; break;
-              case '*': value *= dres; break;
-              case '/': value /= dres; break;
-              case '%': value = zx_modulo(value, dres); break;
-            }
+            value = eval_op(value, *res, i.st);
           } else {
             got_error = true;
             cerr << "\tERROR: " << i.clp << " " << i.val << ": calc failed\n";

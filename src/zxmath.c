@@ -1,8 +1,7 @@
 #include "zxmath.h"
 #include <math.h>
 
-double zx_modulo(double x, double y) {
+double zx_modulo(double x, const double y) {
   x /= y;
-  x -= trunc(x);
-  return x * y;
+  return (x - trunc(x)) * y;
 }

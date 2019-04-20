@@ -5,7 +5,8 @@
 CALC_FN(percent)    { return 1.0 +  x  / 100.0; }
 CALCINV_FN(percent) { return (x - 1.0) * 100.0; }
 
-static double invperc_wrap(const double x, const bool cond) {
+__attribute__((const, always_inline))
+static inline double invperc_wrap(const double x, const bool cond) {
   const double x2 = percent_calc(x);
   return cond ? (1.0 / x2) : x2;
 }
