@@ -34,16 +34,12 @@ bool CalcPluginManager::resolve(string &plgname) {
     const auto it = _aliases.find(plgname);
     if(it != _aliases.end()) plgname = it->second;
   }
-  return load(plgname);
-}
 
-bool CalcPluginManager::load(const string &plgname) {
   { // 1. check if already loaded
     const auto it = _plgs.find(plgname);
     if(it != _plgs.end()) return true;
   }
-  auto &plg = _plgs[plgname];
-  auto &handle = plg.handle;
+  auto &handle = _plgs[plgname].handle;
   const string calc_fn_name = plgname + "_calc";
   { // 2. check if global available
     handle = RTLD_DEFAULT;
@@ -67,8 +63,8 @@ void * CalcPluginManager::plgsym(const string &plgname, const string &fname) {
   return dlsym(_plgs[plgname].handle, fn.c_str());
 }
 
-void CalcPluginManager::alias(const std::string &a, const std::string &plgname) {
-  _aliases[a] = plgname;
+void CalcPluginManager::alias(const string &a, string plgname) {
+  _aliases[a] = move(plgname);
 }
 
 void CalcPluginManager::parse_setup() {
@@ -85,7 +81,7 @@ void CalcPluginManager::parse_setup() {
       std::cerr << "ERROR: parse_setup(./zxcalc.plugins/aliases): failed to parse line: '" << line << "'\n";
       continue;
     }
-    alias(al, pl);
+    alias(al, move(pl));
   }
 }
 
@@ -99,6 +95,7 @@ void CalcPluginManager::list_loaded_plugins() const {
 
 /* plugin functions, prereq: resolve(plgname) */
 auto CalcPluginManager::calc_intern(const string &plgname, const string &fname, const double x) -> optional<double> {
-  double (*fn_calc)(double) = reinterpret_cast<decltype(fn_calc)>(plgsym(plgname, fname));
+  typedef double (*calc_fnt)(double);
+  calc_fnt fn_calc = reinterpret_cast<calc_fnt>(plgsym(plgname, fname));
   return fn_calc ? optional<double>(fn_calc(x)) : std::nullopt;
 }

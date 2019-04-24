@@ -10,16 +10,15 @@ class CalcPluginManager {
 
   std::unordered_map<std::string, plgdat_t> _plgs;
   std::unordered_map<std::string, std::string> _aliases;
-  bool load(const std::string &plgname);
-  void * plgsym(const std::string &plgname, const std::string &fname);
 
+  void * plgsym(const std::string &plgname, const std::string &fname);
   auto calc_intern(const std::string &plgname, const std::string &fname, const double x) -> std::optional<double>;
 
  public:
   CalcPluginManager();
   ~CalcPluginManager();
   bool resolve(std::string &plgname);
-  void alias(const std::string &a, const std::string &plgname);
+  void alias(const std::string &a, std::string plgname);
   void parse_setup();
   void list_loaded_plugins() const;
 

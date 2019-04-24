@@ -37,7 +37,14 @@ struct x_node_t {
   }
 };
 
-static auto parse_line(const string &line, const double prev_val) -> vector<x_node_t> {
+template<typename T>
+static bool is_in_uvec(const vector<T> &vec, const T& val) noexcept {
+  const auto ie = vec.end();
+  const auto it = std::lower_bound(vec.begin(), ie, val);
+  return (it != ie && *it == val);
+}
+
+static auto parse_line(const string &line, const double prev_val, const vector<string> cmds2passup) -> vector<x_node_t> {
   auto toks = split_line(line);
   if(toks.empty()) return {};
   vector<x_node_t> nodes;
@@ -45,7 +52,7 @@ static auto parse_line(const string &line, const double prev_val) -> vector<x_no
   {
     auto &i = toks.front();
     if(toks.size() == 1)
-      if(i == "quit" || i == "list-loaded-plugins" || i == "help")
+      if(is_in_uvec(cmds2passup, i))
         return {x_node_t::error(move(i))};
 
     if(i.size() != 1 || i.find_first_of("+-*/:=") == string::npos) {
@@ -137,6 +144,7 @@ static const char * prompt(EditLine *e) {
 #endif
 
 int main() {
+  const vector<string> cmds2passup = { "exit", "help", "list-loaded-plugins", "quit" };
   CalcPluginManager cpm;
   unordered_map<string, double> vars;
   string line;
@@ -173,7 +181,7 @@ int main() {
 #else
   while(!breakout && getline(cin, line)) {
 #endif
-    auto parts = parse_line(line, value);
+    auto parts = parse_line(line, value, cmds2passup);
     vars["_"] = value;
     value = 0;
     bool got_error = false;
@@ -186,7 +194,7 @@ int main() {
       switch(i.st) {
         case 'e':
           got_error = true;
-          if(i.clp == "quit") {
+          if(i.clp == "quit" || i.clp == "exit") {
             breakout = true;
             break;
           } else if(i.clp == "list-loaded-plugins") {
