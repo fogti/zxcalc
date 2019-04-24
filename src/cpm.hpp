@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -6,13 +7,14 @@ class CalcPluginManager {
   struct plgdat_t {
     plgdat_t();
     void *handle;
+    size_t scale;
   };
 
   std::unordered_map<std::string, plgdat_t> _plgs;
   std::unordered_map<std::string, std::string> _aliases;
 
   void * plgsym(const std::string &plgname, const std::string &fname);
-  auto calc_intern(const std::string &plgname, const std::string &fname, const double x) -> std::optional<double>;
+  auto calc_intern(const std::string &plgname, bool is_inv, double x) -> std::optional<double>;
 
  public:
   CalcPluginManager();
@@ -23,8 +25,9 @@ class CalcPluginManager {
   void list_loaded_plugins() const;
 
   /* plugin functions, prereq: resolve(plgname) */
+  void set_scale(const std::string &plgname, size_t scale);
   auto calc(const std::string &plgname, const double x)
-    { return calc_intern(plgname, "calc", x); }
+    { return calc_intern(plgname, false, x); }
   auto calcinv(const std::string &plgname, const double x)
-    { return calc_intern(plgname, "calcinv", x); }
+    { return calc_intern(plgname, true, x); }
 };

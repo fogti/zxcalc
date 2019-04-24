@@ -22,7 +22,7 @@ using namespace std;
 struct x_node_t {
   string clp, var;
   double val;
-  char st; // one of: +-*/:=e
+  char st; // one of: +-*/:=eS
 
   static auto expr(string clp, string var, double val, char st) -> x_node_t {
     return x_node_t{ std::move(clp), std::move(var), val, st };
@@ -53,6 +53,22 @@ static auto parse_line(const string &line, const double prev_val, const vector<s
     auto &i = toks.front();
     if(toks.size() == 1 && is_in_uvec(cmds2passup, i))
       return {x_node_t::error(move(i))};
+
+    if(i == "set-scale") {
+      if(toks.size() == 3) {
+        x_node_t ret { move(toks[1]), string(), 0.0, 'S' };
+        auto &valas = toks[2];
+        try {
+          double val = stod(valas);
+          ret.val = val;
+        } catch(...) {
+          ret.var = valas;
+        }
+        return {move(ret)};
+      } else {
+        return {x_node_t::error("invalid invocation of 'set-scale'\n\t\tUSAGE: set-scale PLG ['+'|'-']NUM")};
+      }
+    }
 
     if(i.size() != 1 || i.find_first_of("+-*/:=") == string::npos) {
       nodes.emplace_back(x_node_t::expr(move(i), string(), prev_val, '+'));
@@ -196,9 +212,10 @@ int main() {
             break;
           } else if(i.clp == "help") {
             cout << "  --COMMANDS--\n"
-              "\tquit\t\t\texit this program\n"
-              "\thelp\t\t\tprint this text\n"
-              "\tlist-loaded-plugins\tprint list of currently loaded plugins\n"
+              "\tquit\t\t\t\texit this program\n"
+              "\thelp\t\t\t\tprint this text\n"
+              "\tlist-loaded-plugins\t\tprint list of currently loaded plugins\n"
+              "\tset-scale PLG ['+'|'-']NUM\tset the scaling factor for the plugin (NUM < 0 --> division)\n"
               "\n  --SYNTAX--\n"
               "\tThis program expects input lines not containing one of the\n"
               "\tcommands above to have the following format:\n"
@@ -206,6 +223,21 @@ int main() {
             break;
           }
           cerr << "\tERROR: " << i.clp << '\n';
+          break;
+
+        case 'S':
+          got_error = true; // we don't want a "\t0\n" line after this
+          if(!i.var.empty()) {
+            const auto it = vars.find(i.var);
+            if(it == vars.end()) {
+              cerr << "\tERROR: " << i.var << ": unknown variable\n";
+              break;
+            }
+            i.val = it->second;
+          }
+          if(i.val > 0.0 && i.val < 1.0)
+            i.val = -(1.0 / i.val);
+          cpm.set_scale(i.clp, i.val);
           break;
 
         case ':':

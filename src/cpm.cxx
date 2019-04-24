@@ -9,7 +9,7 @@ using std::string;
 using std::optional;
 
 CalcPluginManager::plgdat_t::plgdat_t()
-  : handle(RTLD_DEFAULT) { }
+  : handle(RTLD_DEFAULT), scale(1) { }
 
 CalcPluginManager::CalcPluginManager() {
   // default aliases
@@ -94,8 +94,24 @@ void CalcPluginManager::list_loaded_plugins() const {
 }
 
 /* plugin functions, prereq: resolve(plgname) */
-auto CalcPluginManager::calc_intern(const string &plgname, const string &fname, const double x) -> optional<double> {
+void CalcPluginManager::set_scale(const string &plgname, size_t scale) {
+  if(!scale) scale = 1;
+  _plgs[plgname].scale = scale;
+}
+
+auto CalcPluginManager::calc_intern(const string &plgname, const bool is_inv, double x) -> optional<double> {
   typedef double (*calc_fnt)(double);
+  const string fname = is_inv ? "calcinv" : "calc";
   calc_fnt fn_calc = reinterpret_cast<calc_fnt>(plgsym(plgname, fname));
-  return fn_calc ? optional<double>(fn_calc(x)) : std::nullopt;
+  if(!fn_calc) return std::nullopt;
+  double scale = 1;
+  {
+    const size_t tmp_scale = _plgs[plgname].scale;
+    scale = (tmp_scale > 0) ? tmp_scale : (-1.0 / tmp_scale);
+  }
+  double tmp = x;
+  if(is_inv)  tmp /= scale;
+  tmp = fn_calc(tmp);
+  if(!is_inv) tmp *= scale;
+  return optional<double>(tmp);
 }
