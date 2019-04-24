@@ -51,9 +51,8 @@ static auto parse_line(const string &line, const double prev_val, const vector<s
 
   {
     auto &i = toks.front();
-    if(toks.size() == 1)
-      if(is_in_uvec(cmds2passup, i))
-        return {x_node_t::error(move(i))};
+    if(toks.size() == 1 && is_in_uvec(cmds2passup, i))
+      return {x_node_t::error(move(i))};
 
     if(i.size() != 1 || i.find_first_of("+-*/:=") == string::npos) {
       nodes.emplace_back(x_node_t::expr(move(i), string(), prev_val, '+'));
@@ -69,25 +68,20 @@ static auto parse_line(const string &line, const double prev_val, const vector<s
       case PM_START:
         if(i.size() == 1) {
           st = i.back();
-          switch(i.back()) {
-            case '+':
-            case '-':
-            case '*':
-            case '/':
+          switch(st) {
+            case '+': case '-':
+            case '*': case '/':
             case '%':
-              mode = PM_CLP;
-              break;
+              mode = PM_CLP ; continue;
 
-            case ':':
-            case '=':
-              mode = PM_CLPX;
-              break;
+            case ':': case '=':
+              mode = PM_CLPX; continue;
 
             default:
-              nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|'*'|'/'|':'|'=' instead of '" + move(i) + "'"));
               break;
           }
         }
+        nodes.emplace_back(x_node_t::error("expected one of '+'|'-'|'*'|'/'|':'|'=' instead of '" + move(i) + "'"));
         break;
       case PM_CLP: // expect calc plugin name
         clp = move(i);
