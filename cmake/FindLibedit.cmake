@@ -23,7 +23,7 @@ find_path(LIBEDIT_INCLUDE_DIR
 
 find_library(LIBEDIT_LIBRARIES
              NAMES edit
-             HINTS ${LIBEDIT_ROOT_DIR}/lib)
+             HINTS "${LIBEDIT_ROOT_DIR}/lib${LIB_SUFFIX}" ${LIBEDIT_ROOT_DIR}/lib64 ${LIBEDIT_ROOT_DIR}/lib)
 
 include(FindPackageHandleStandardArgs)
 
